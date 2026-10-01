@@ -58,7 +58,8 @@ app.get("/api/chart", chartHandler);
 app.get("/api/bodygraph", chartHandler);
 
 app.get("/bodygraph", (req, res) => {
-  res.sendFile(__dirname + "/bodygraph.html");
+  res.set("Cache-Control", "no-store");
+  res.sendFile(__dirname + "/bodygraph_server.html");
 });
 
 const PORT = process.env.PORT || 3000;
