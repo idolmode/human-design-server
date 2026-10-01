@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
+  <title>Human Design BodyGraph</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #ffffff;
+      font-family: Arial, sans-serif;
+      color: #222;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 24px;
+      margin-bottom: 20px;
+    }
+
+    #chart {
+      width: 100%;
+      max-width: 650px;
+      margin: 0 auto;
+    }
+
+    .info {
+      margin-top: 20px;
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+
+    .card {
+      padding: 12px 20px;
+      border-radius: 12px;
+      background: #f5f5f5;
+      min-width: 130px;
+    }
+
+    .label {
+      font-size: 12px;
+      color: #777;
+      margin-bottom: 5px;
+    }
+
+    .value {
+      font-size: 18px;
+      font-weight: bold;
+    }
+
+    .defined {
+      fill: #e85d75;
+      stroke: #333;
+      stroke-width: 2;
+    }
+
+    .undefined {
+      fill: white;
+      stroke: #777;
+      stroke-width: 2;
+    }
+
+    .channel {
+      stroke: #555;
+      stroke-width: 8;
+      stroke-linecap: round;
+    }
+
+    .gate {
+      font-size: 11px;
+      font-weight: bold;
+      fill: #222;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <h1>Ваш BodyGraph</h1>
+
+  <div id="chart">
+    Загрузка...
+  </div>
+
+  <div class="info">
+
+    <div class="card">
+      <div class="label">Тип</div>
+      <div class="value" id="type">—</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Авторитет</div>
+      <div class="value" id="authority">—</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Профиль</div>
+      <div class="value" id="profile">—</div>
+    </div>
+
+  </div>
+
+</div>
+
+
+<script>
+
+const params = new URLSearchParams(window.location.search);
+
+const date = params.get("date");
+const time = params.get("time");
+const timezone = params.get("timezone");
+
+
+if (!date || !time || !timezone) {
+
+  document.getElementById("chart").innerHTML =
+    "<p>Не указаны данные рождения.</p>";
+
+} else {
+
+  const API =
+    "/api/chart" +
+    "?date=" + encodeURIComponent(date) +
+    "&time=" + encodeURIComponent(time) +
+    "&timezone=" + encodeURIComponent(timezone);
+
+
+  fetch(API)
+
+    .then(response => {
+
+      if (!response.ok) {
+        throw new Error("Ошибка API");
+      }
+
+      return response.json();
+
+    })
+
+    .then(data => {
+
+      drawBodyGraph(data);
+
+    })
+
+    .catch(error => {
+
+      console.error(error);
+
+      document.getElementById("chart").innerHTML =
+        "<p>Не удалось загрузить карту.</p>";
+
+    });
+
+}
+
+
+function drawBodyGraph(data) {
+
+  const hd = data.humanDesign;
+
+
+  document.getElementById("type").textContent =
+    hd.type || "—";
+
+  document.getElementById("authority").textContent =
+    hd.authority || "—";
+
+  document.getElementById("profile").textContent =
+    hd.profile || "—";
+
+
+  const defined =
+    hd.definedCenters || [];
+
+
+  const channels =
+    hd.definedChannels || [];
+
+
+  const gates =
+    hd.activatedGates || [];
+
+
+  /*
+    Координаты центров.
+
+    Это базовая схема.
+  */
+
+  const centers = {
+
+    head: {
+      x: 300,
+      y: 70,
+      points: "270,40 330,40 350,80 300,105 250,80"
+    },
+
+    ajna: {
+      x: 300,
+      y: 150,
+      points: "260,120 340,120 350,170 300,195 250,170"
+    },
+
+    throat: {
+      x: 300,
+      y: 245,
+      points: "260,210 340,210 350,265 300,295 250,265"
+    },
+
+    g: {
+      x: 300,
+      y: 365,
+      points: "260,325 340,325 350,380 300,410 250,380"
+    },
+
+    heart: {
+      x: 205,
+      y: 450,
+      points: "170,420 240,420 255,470 205,500 155,470"
+    },
+
+    spleen: {
+      x: 120,
+      y: 545,
+      points: "85,515 155,515 170,565 120,595 70,565"
+    },
+
+    solarplexus: {
+      x: 390,
+      y: 545,
+      points: "355,515 425,515 440,565 390,595 340,565"
+    },
+
+    sacral: {
+      x: 300,
+      y: 535,
+      points: "260,500 340,500 355,550 300,580 245,550"
+    },
+
+    root: {
+      x: 300,
+      y: 650,
+      points: "260,615 340,615 355,665 300,695 245,665"
+    }
+
+  };
+
+
+  let svg = `
+
+  <svg
+    viewBox="0 0 600 760"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+
+  `;
+
+
+  /*
+    Каналы
+  */
+
+  channels.forEach(channel => {
+
+    const key = channel.key;
+
+    if (key === "9-52") {
+
+      svg += `
+        <line
+          x1="300"
+          y1="580"
+          x2="300"
+          y2="615"
+          class="channel"
+        />
+      `;
+
+    }
+
+    if (key === "30-41") {
+
+      svg += `
+        <line
+          x1="355"
+          y1="515"
+          x2="425"
+          y2="515"
+          class="channel"
+        />
+      `;
+
+    }
+
+  });
+
+
+  /*
+    Центры
+  */
+
+  Object.entries(centers).forEach(([name, center]) => {
+
+    const isDefined =
+      defined.includes(name);
+
+
+    svg += `
+
+      <polygon
+        points="${center.points}"
+        class="${isDefined ? "defined" : "undefined"}"
+      />
+
+      <text
+        x="${center.x}"
+        y="${center.y}"
+        text-anchor="middle"
+        dominant-baseline="middle"
+        font-size="12"
+      >
+        ${name}
+      </text>
+
+    `;
+
+  });
+
+
+  /*
+    Активированные ворота.
+  */
+
+  svg += `
+
+    <g>
+
+  `;
+
+  gates.forEach((gate, index) => {
+
+    const angle =
+      (index / gates.length) *
+      Math.PI * 2;
+
+    const x =
+      300 + Math.cos(angle) * 250;
+
+    const y =
+      370 + Math.sin(angle) * 250;
+
+
+    svg += `
+
+      <text
+        x="${x}"
+        y="${y}"
+        text-anchor="middle"
+        class="gate"
+      >
+        ${gate}
+      </text>
+
+    `;
+
+  });
+
+
+  svg += `
+
+    </g>
+
+  </svg>
+
+  `;
+
+
+  document.getElementById("chart").innerHTML =
+    svg;
+
+}
+
+</script>
+
+</body>
+</html>
