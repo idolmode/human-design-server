@@ -8,6 +8,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+app.get("/bodygraph", (req, res) => {
+  res.sendFile(__dirname + "/bodygraph.html");
+});
+
 app.get("/", (req, res) => {
   res.send("Human Design server is working!");
 });
