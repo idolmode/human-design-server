@@ -1,12 +1,14 @@
 {
   "name": "human-design-server",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Human Design API for GetCourse",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.0.0",
+    "@aws-sdk/s3-request-presigner": "^3.0.0",
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "free-human-design": "^1.0.0"
