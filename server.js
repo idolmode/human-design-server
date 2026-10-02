@@ -4,7 +4,7 @@ const crypto = require("crypto");
 const { computeChart } = require("free-human-design");
 const { S3Client, PutObjectCommand, GetObjectCommand } = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
-const { renderSvg, svgToPng } = require("./render");
+const { renderSvg, svgToPng, fontCount } = require("./render");
 const { normalizeDate, normalizeTime, writeFieldsToGetCourse } = require("./gc");
 const { findCity } = require("./geo");
 
@@ -13,6 +13,19 @@ app.set("trust proxy", 1); // за прокси хостинга (нужно д�
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// GetCourse может прислать тело без нужного Content-Type. Для вебхука разбираем его сами.
+app.use("/api/gc", express.text({ type: () => true, limit: "100kb" }), (req, res, next) => {
+  if (typeof req.body === "string" && req.body.trim()) {
+    const raw = req.body.trim();
+    try {
+      req.body = JSON.parse(raw);
+    } catch {
+      req.body = Object.fromEntries(new URLSearchParams(raw));
+    }
+  }
+  next();
+});
 
 // ---------- Хранилище S3 (Рег.ру) ----------
 // Всё задаётся переменными окружения, ключи в код не вписываем.
@@ -84,7 +97,7 @@ app.get("/", (req, res) => {
 });
 
 app.get("/health", (req, res) => {
-  res.json({ ok: true });
+  res.json({ ok: true, fonts: fontCount });
 });
 
 app.get("/api/chart", chartHandler);
@@ -215,10 +228,17 @@ async function processGetCourseJob(input) {
 app.all("/api/gc/bodygraph", async (req, res) => {
   const ok = tokenState(req);
   if (ok === null) return res.status(503).json({ error: "Интеграция не настроена" });
-  if (!ok) return res.status(403).json({ error: "Неверный токен" });
+  if (!ok) {
+    const keys = Object.keys({ ...req.query, ...(typeof req.body === "object" && req.body ? req.body : {}) });
+    console.warn(`GC webhook: неверный токен. method=${req.method} content-type=${req.get("content-type") || "-"} получены поля: ${keys.join(", ") || "нет"}`);
+    return res.status(403).json({ error: "Неверный токен" });
+  }
 
   const input = { ...req.query, ...(req.body || {}) };
   if (!input.date || !input.time || !(input.timezone || input.city)) {
+    // В логах только названия полей и признак «заполнено», без самих значений.
+    const state = ["email", "date", "time", "city", "timezone"].map((k) => `${k}=${input[k] ? "есть" : "пусто"}`).join(", ");
+    console.warn(`GC webhook: не хватает данных. method=${req.method} content-type=${req.get("content-type") || "-"} ${state}`);
     return res.status(400).json({ error: "Необходимо указать date, time и city (или timezone)" });
   }
 
